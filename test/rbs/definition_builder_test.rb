@@ -1595,6 +1595,50 @@ end
     end
   end
 
+  def test_new_with_super_method
+    SignatureManager.new do |manager|
+      manager.files.merge!(Pathname("foo.rbs") => <<-EOF)
+class C
+  def self.new: (String) -> untyped
+end
+
+class C2 < C
+end
+      EOF
+      manager.build do |env|
+        builder = DefinitionBuilder.new(env: env)
+
+        builder.build_singleton(type_name("::C")).tap do |definition|
+          new = definition.methods[:new]
+          assert_equal ["(::String) -> untyped"], new.method_types.map(&:to_s)
+        end
+
+        builder.build_singleton(type_name("::C2")).tap do |definition|
+          new = definition.methods[:new]
+          assert_equal ["(::String) -> untyped"], new.method_types.map(&:to_s)
+        end
+      end
+    end
+  end
+
+  def test_no_new_on_module
+    SignatureManager.new do |manager|
+      manager.files.merge!(Pathname("foo.rbs") => <<-EOF)
+module M
+  def initialize: (String, Integer) -> void
+end
+      EOF
+      manager.build do |env|
+        builder = DefinitionBuilder.new(env: env)
+
+        builder.build_singleton(type_name("::M")).tap do |definition|
+          new = definition.methods[:new]
+          assert_nil new
+        end
+      end
+    end
+  end
+
   def test_definition_variance_initialize
     SignatureManager.new do |manager|
       manager.files.merge!(Pathname("foo.rbs") => <<-EOF)
